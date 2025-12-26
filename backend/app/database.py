@@ -1,22 +1,20 @@
 # Conexión DB
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "sqlite+aiosqlite:///./tasktrack.db"
+DATABASE_URL = "sqlite:///./tasktrack.db"
 
-# motor de base de datos
-engine = create_async_engine(
+engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    connect_args={"check_same_thread": False}  # requerido por SQLite
 )
 
-# sesión asincrónica
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
 )
 
-# base declarativa
 Base = declarative_base()
+
