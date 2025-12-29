@@ -1,21 +1,16 @@
-# Pydantic schemas
-
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
-
+from datetime import date, datetime
 
 class TaskBase(BaseModel):
     title: str
-    description: Optional[str] = None
-
+    description: str | None = None
 
 class TaskCreate(TaskBase):
-    pass
-
+    pass   # 👈 NO pedimos date
 
 class Task(TaskBase):
     id: int
+    date: date
     completed: bool
     created_at: datetime
 
