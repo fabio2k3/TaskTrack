@@ -25,7 +25,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=False)
-    date = Column(Date, nullable=False)
+    task_date = Column(Date, nullable=False)
     completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -35,14 +35,14 @@ Base.metadata.create_all(bind=engine)
 # Pydantic MODELS
 # -------------------------
 class TaskCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=100, description="Título de la tarea")
-    description: str = Field(..., min_length=1, max_length=500, description="Descripción de la tarea")
-    date: date = Field(..., description="Fecha de la tarea (YYYY-MM-DD)")
+    title: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(..., min_length=1, max_length=500)
+    task_date: date = Field(..., description="Fecha de la tarea (YYYY-MM-DD)")
 
 class TaskUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
-    date: date | None = None
+    task_date: date | None = None
     completed: bool | None = None
 
 class TaskResponse(TaskCreate):
@@ -50,8 +50,7 @@ class TaskResponse(TaskCreate):
     completed: bool
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 # -------------------------
 # DEPENDENCIES
@@ -75,33 +74,34 @@ app = FastAPI(title="TaskTrack API", version="1.0")
 # CREATE TASK
 @app.post("/tasks", response_model=TaskResponse)
 def create_task(task: TaskCreate, db: Session = Depends(get_db)):
-    db_task = Task(**task.dict())
+    db_task = Task(**task.model_dump())
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
 
-# READ TASKS (with optional filters and sorting)
+# READ TASKS (filters + sorting)
 @app.get("/tasks", response_model=list[TaskResponse])
 def read_tasks(
-    completed: bool | None = Query(None, description="Filtrar por tareas completadas o no"),
-    start_date: date | None = Query(None, description="Filtrar tareas desde esta fecha"),
-    end_date: date | None = Query(None, description="Filtrar tareas hasta esta fecha"),
-    sort_by: str = Query("date", description="Ordenar por 'date' o 'title'"),
+    completed: bool | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    sort_by: str = Query("task_date"),
     db: Session = Depends(get_db)
 ):
     query = db.query(Task)
+
     if completed is not None:
         query = query.filter(Task.completed == completed)
     if start_date:
-        query = query.filter(Task.date >= start_date)
+        query = query.filter(Task.task_date >= start_date)
     if end_date:
-        query = query.filter(Task.date <= end_date)
+        query = query.filter(Task.task_date <= end_date)
 
     if sort_by == "title":
         query = query.order_by(Task.title)
     else:
-        query = query.order_by(Task.date)
+        query = query.order_by(Task.task_date)
 
     return query.all()
 
@@ -119,8 +119,10 @@ def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    for field, value in task_update.dict(exclude_unset=True).items():
+
+    for field, value in task_update.model_dump(exclude_unset=True).items():
         setattr(task, field, value)
+
     db.commit()
     db.refresh(task)
     return task
@@ -137,7 +139,7 @@ def complete_task(task_id: int, db: Session = Depends(get_db)):
     return task
 
 # DELETE TASK
-@app.delete("/tasks/{task_id}", response_model=dict)
+@app.delete("/tasks/{task_id}")
 def delete_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
