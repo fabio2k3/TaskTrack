@@ -1,35 +1,55 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  completed: boolean;
+  created_at: string;
 }
 
-export default App
+function App() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Función para cargar tareas desde el backend
+  const loadTasks = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/tasks");
+      const data: Task[] = await res.json();
+      setTasks(data);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await loadTasks();
+    };
+    fetchData();
+  }, []);
+
+  return (
+    <div className="App">
+      <h1>TaskTrack Frontend</h1>
+      {loading && <p>Cargando tareas...</p>}
+      {!loading && tasks.length === 0 && <p>No hay tareas.</p>}
+      <ul>
+        {tasks.map((task) => (
+          <li key={task.id}>
+            <strong>{task.title}</strong> - {task.description} | Fecha: {task.date} |{" "}
+            {task.completed ? "Completada" : "Pendiente"}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
